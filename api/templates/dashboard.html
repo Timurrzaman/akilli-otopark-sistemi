@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Akıllı Otopark Paneli</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #161920;
+      --card:      #1c2029;
+      --border:    rgba(255,255,255,0.07);
+      --green:     #22c55e;
+      --green-dim: rgba(34,197,94,0.12);
+      --red:       #ef4444;
+      --red-dim:   rgba(239,68,68,0.12);
+      --amber:     #f59e0b;
+      --text:      #e8eaf0;
+      --muted:     #6b7280;
+      --font:      'DM Sans', sans-serif;
+      --mono:      'DM Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+    .logo-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    .mode-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
+    #last-update {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-size: 36px;
+      font-weight: 600;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red   { color: var(--red); }
+    .stat-value.amber { color: var(--amber); }
+
+    /* ── Park grid ── */
+    .park-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 40px;
+    }
+    .spot {
+      border-radius: 16px;
+      padding: 24px 16px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--border);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      cursor: default;
+    }
+    .spot:hover { transform: translateY(-2px); }
+
+    .spot.empty    { background: var(--green-dim); border-color: rgba(34,197,94,0.2); }
+    .spot.occupied { background: var(--red-dim);   border-color: rgba(239,68,68,0.2); }
+
+    .spot-icon {
+      width: 52px; height: 36px;
+      position: relative;
+    }
+    /* Basit araba silüeti SVG */
+    .spot-icon svg { width: 100%; height: 100%; }
+
+    .spot-number {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .spot-status {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .spot.empty    .spot-status { color: var(--green); }
+    .spot.occupied .spot-status { color: var(--red); }
+
+    .spot-distance {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Connection status bar ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .status-dot.connected    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.disconnected { background: var(--red); }
+    .status-dot.loading      { background: var(--amber); animation: pulse 1s infinite; }
+
+    /* ── Log ── */
+    .log-section { margin-top: 8px; }
+    .log-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    #log-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      height: 120px;
+      overflow-y: auto;
+      line-height: 1.8;
+    }
+    .log-entry { color: var(--muted); }
+    .log-entry.ok  { color: #4ade80; }
+    .log-entry.err { color: #f87171; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Akıllı Otopark
+  </div>
+  <span class="mode-badge" id="mode-badge">BAĞLANIYOR...</span>
+  <span id="last-update">—</span>
+</header>
+
+<!-- Bağlantı durumu -->
+<div class="status-bar">
+  <div class="status-dot loading" id="status-dot"></div>
+  <span id="status-text">API'ye bağlanılıyor...</span>
+</div>
+
+<!-- İstatistikler -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-label">Toplam</div>
+    <div class="stat-value amber" id="stat-total">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Boş</div>
+    <div class="stat-value green" id="stat-empty">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Dolu</div>
+    <div class="stat-value red" id="stat-occupied">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Doluluk</div>
+    <div class="stat-value amber" id="stat-pct">—</div>
+  </div>
+</div>
+
+<!-- Park yerleri -->
+<div class="park-grid" id="parking-container">
+  <!-- JS ile doldurulur -->
+</div>
+
+<!-- Log -->
+<div class="log-section">
+  <div class="log-title">Sistem Logu</div>
+  <div id="log-box"></div>
+</div>
+
+<script>
+  // ── Ayarlar ──
+  const POLL_INTERVAL = 2000;   // ms — WebSocket eklenince kaldırılır
+  const API_URL       = '/api/spots/';
+
+  // ── Araba SVG (boş/dolu) ──
+  const carSVG = (color) => `
+    <svg viewBox="0 0 52 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="14" width="44" height="16" rx="4" fill="${color}" opacity="0.9"/>
+      <path d="M12 14 L18 6 H34 L40 14" fill="${color}" opacity="0.7"/>
+      <rect x="7" y="26" width="8" height="5" rx="2.5" fill="#1c2029"/>
+      <rect x="37" y="26" width="8" height="5" rx="2.5" fill="#1c2029"/>
+      <rect x="20" y="8" width="12" height="6" rx="1" fill="rgba(255,255,255,0.15)"/>
+    </svg>`;
+
+  // ── Log yardımcısı ──
+  function addLog(msg, type = '') {
+    const box = document.getElementById('log-box');
+    const now = new Date().toLocaleTimeString('tr-TR');
+    const div = document.createElement('div');
+    div.className = `log-entry ${type}`;
+    div.textContent = `[${now}] ${msg}`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    // 50 satırda tut
+    while (box.children.length > 50) box.removeChild(box.firstChild);
+  }
+
+  // ── Bağlantı göstergesi ──
+  function setStatus(state, text) {
+    const dot  = document.getElementById('status-dot');
+    const span = document.getElementById('status-text');
+    dot.className  = `status-dot ${state}`;
+    span.textContent = text;
+  }
+
+  // ── Veri çekme ──
+  async function fetchData() {
+    try {
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      renderSpots(data.spots);
+      renderStats(data.summary);
+      updateTimestamp();
+      setStatus('connected', 'Canlı veri alınıyor — her 2 saniyede güncellenir');
+      document.getElementById('mode-badge').textContent = 'CANLI';
+
+    } catch (err) {
+      setStatus('disconnected', `Bağlantı hatası: ${err.message}`);
+      addLog(`API hatası: ${err.message}`, 'err');
+      document.getElementById('mode-badge').textContent = 'BAĞLANTI YOK';
+    }
+  }
+
+  // ── Park yeri kartları ──
+  function renderSpots(spots) {
+    const container = document.getElementById('parking-container');
+    container.innerHTML = '';
+
+    spots.forEach(spot => {
+      const div = document.createElement('div');
+      div.className = `spot ${spot.is_occupied ? 'occupied' : 'empty'}`;
+
+      const color  = spot.is_occupied ? '#ef4444' : '#22c55e';
+      const status = spot.is_occupied ? 'DOLU' : 'BOŞ';
+
+      div.innerHTML = `
+        <div class="spot-icon">${carSVG(color)}</div>
+        <div class="spot-number">P${spot.spot_number}</div>
+        <div class="spot-status">${status}</div>
+        ${spot.last_updated
+          ? `<div class="spot-distance">${new Date(spot.last_updated).toLocaleTimeString('tr-TR')}</div>`
+          : ''}
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  // ── İstatistikler ──
+  function renderStats(summary) {
+    document.getElementById('stat-total').textContent    = summary.total;
+    document.getElementById('stat-empty').textContent    = summary.empty;
+    document.getElementById('stat-occupied').textContent = summary.occupied;
+    const pct = summary.total > 0
+      ? Math.round((summary.occupied / summary.total) * 100)
+      : 0;
+    document.getElementById('stat-pct').textContent = `%${pct}`;
+  }
+
+  // ── Zaman damgası ──
+  function updateTimestamp() {
+    document.getElementById('last-update').textContent =
+      'Son güncelleme: ' + new Date().toLocaleTimeString('tr-TR');
+  }
+
+  // ── Başlat ──
+  addLog('Dashboard başlatıldı.', 'ok');
+  fetchData();
+  setInterval(fetchData, POLL_INTERVAL);
+
+  /* 
+   * ──────────────────────────────────────────
+   * WebSocket için hazır yapı (Django Channels eklenince aktif edin):
+   * ──────────────────────────────────────────
+   *
+   * const ws = new WebSocket(`ws://${location.host}/ws/parking/`);
+   * ws.onopen    = () => { setStatus('connected', 'WebSocket bağlandı'); addLog('WS bağlandı', 'ok'); };
+   * ws.onmessage = (e) => { const d = JSON.parse(e.data); renderSpots(d.spots); renderStats(d.summary); updateTimestamp(); };
+   * ws.onclose   = () => { setStatus('disconnected', 'WebSocket bağlantısı kesildi'); addLog('WS kesildi', 'err'); };
+   *
+   * Polling'i kaldırın: clearInterval yukarıdaki setInterval'dan dönen id ile.
+  */
+</script>
+
+</body>
+</html>
